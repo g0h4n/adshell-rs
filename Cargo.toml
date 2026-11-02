@@ -1,0 +1,57 @@
+[package]
+name = "adshell-rs"
+version = "1.0.0"
+edition = "2021"
+description = "Interactive LDAP/ADWS shell and Active Directory attack actions in pure Rust, over LDAP(S) or ADWS (SOAP). Transport model from RustHound-CE, ADWS via adws-rs."
+license = "MIT"
+
+[[bin]]
+name = "adshell-rs"
+path = "src/main.rs"
+
+[dependencies]
+tokio      = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "time"] }
+clap       = "4.5"
+anyhow     = "1"
+log        = "0.4"
+env_logger = "0.11"
+rand       = "0.8"
+hex        = "0.4"
+
+# Interactive shell: line editing, history, Tab completion.
+rustyline = "14"
+# Password prompt when -u is given without -p (like RustHound-CE).
+rpassword = "7"
+
+# Shadow Credentials: RSA key + self-signed cert + SHA-256 KeyID.
+rcgen = { version = "0.13", features = ["ring"] }
+sha2  = "0.10"
+rsa   = "0.9"
+time  = "0.3"
+
+# LDAP(S) transport (same TLS stack as RustHound-CE: ldap3 + rustls ring).
+# `ntlm` gives pass-the-hash via sasl_ntlm_bind.
+ldap3 = { version = "0.12.1", default-features = false, features = ["tls-rustls-ring", "ntlm"] }
+
+# ADWS / SOAP transport.
+adws_rs = { package = "adws", version = "0.1.0", features = ["ldap3", "sspi-auth"] }
+
+# rustls pieces (aligned with what ldap3 0.12.1 pulls: rustls 0.23, pki-types 1).
+rustls           = { version = "0.23", default-features = false, features = ["ring", "std"] }
+rustls-pemfile   = "2"
+rustls-pki-types = "1"
+
+# PKCS#12 (.pfx) parsing, pure Rust.
+p12-keystore = "0.3"
+
+# sspi 0.16.1 is forced by ldap3's `ntlm` feature and shared with adws-rs; these
+# pins let sspi 0.16.1 compile (see adws-rs ROADMAP > Dependencies). A single
+# sspi (and picky) then resolves across the whole tree.
+picky     = "=7.0.0-rc.17"
+picky-krb = "=0.11.1"
+
+[profile.release]
+opt-level = 3
+lto = true
+strip = true
+codegen-units = 1
