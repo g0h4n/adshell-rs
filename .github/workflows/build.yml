@@ -88,7 +88,6 @@ jobs:
           key: kfw-4.1-amd64
 
       - name: Install MIT Kerberos (Windows MSVC)
-        # Only the MSVC build links GSSAPI; the GNU build uses --features nogssapi.
         if: matrix.platform.target == 'x86_64-pc-windows-msvc'
         shell: pwsh
         run: |
@@ -167,22 +166,17 @@ jobs:
             RUSTFLAGS_VAL="-C target-feature=+crt-static"
           fi
 
-          NOGSSAPI_FLAGS=""
-          if [[ "${{ runner.os }}" == "macOS" || "${{ matrix.platform.target }}" == "x86_64-unknown-linux-gnu" ]]; then
-            NOGSSAPI_FLAGS="--features nogssapi --no-default-features"
-          fi
-
           export RUSTFLAGS="$RUSTFLAGS_VAL"
 
           if [[ "${{ matrix.platform.target }}" == "x86_64-unknown-linux-gnu" ]]; then
             # Native Linux build
-            cargo build --verbose --locked --release --target ${{ matrix.platform.target }} $NOGSSAPI_FLAGS
+            cargo build --verbose --locked --release --target ${{ matrix.platform.target }}
           elif [[ "${{ runner.os }}" == "Linux" ]]; then
             # Cross-compile Linux or Windows (GNU) build
-            cross build --verbose --locked --release --target ${{ matrix.platform.target }} --features nogssapi --no-default-features
+            cross build --verbose --locked --release --target ${{ matrix.platform.target }} --no-default-features
           elif [[ "${{ runner.os }}" == "macOS" ]]; then
             # Native macOS build
-            cargo build --verbose --locked --release --target ${{ matrix.platform.target }} $NOGSSAPI_FLAGS
+            cargo build --verbose --locked --release --target ${{ matrix.platform.target }}
           else
             # Native Windows (MSVC) build
             cargo build --verbose --locked --release --target ${{ matrix.platform.target }}
