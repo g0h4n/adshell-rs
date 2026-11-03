@@ -4,7 +4,7 @@
 
 use std::collections::HashMap;
 
-use log::info;
+use crate::shlog;
 
 /// Pretty-print every attribute of an entry (text + binary maps).
 pub fn dump(
@@ -12,7 +12,7 @@ pub fn dump(
     attrs: &HashMap<String, Vec<String>>,
     bin_attrs: &HashMap<String, Vec<Vec<u8>>>,
 ) {
-    info!("[*] {dn}");
+    shlog!("[*] {dn}");
 
     let mut names: Vec<String> = attrs.keys().cloned().collect();
     for k in bin_attrs.keys() {
@@ -25,12 +25,12 @@ pub fn dump(
     for name in &names {
         if let Some(values) = attrs.get(name) {
             for v in values {
-                info!("    {name}: {}", pretty_text(name, v));
+                shlog!("    {name}: {}", pretty_text(name, v));
             }
         }
         if let Some(values) = bin_attrs.get(name) {
             for v in values {
-                info!("    {name}: {}", pretty_binary(name, v));
+                shlog!("    {name}: {}", pretty_binary(name, v));
             }
         }
     }

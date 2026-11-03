@@ -6,10 +6,10 @@ use std::collections::HashSet;
 use anyhow::{anyhow, Result};
 use ldap3::controls::RawControl;
 use ldap3::{Ldap, Mod, Scope, SearchEntry};
-use log::info;
 
 use crate::args::Options;
 use crate::actions::common::sd;
+use crate::shlog;
 
 /// DCSync extended-right GUIDs (DS-Replication-Get-Changes*).
 const DCSYNC_GUIDS: &[&str] = &[
@@ -74,7 +74,7 @@ pub async fn change_password(ldap: &mut Ldap, opts: &Options) -> Result<()> {
     ldap.modify(&dn, vec![Mod::Replace(b"unicodePwd".to_vec(), HashSet::from([encoded]))])
         .await?.success()
         .map_err(|e| anyhow!("password change failed (need LDAPS + sufficient rights): {e}"))?;
-    info!("password of '{target}' changed to: {new_pass}");
+    shlog!("password of '{target}' changed to: {new_pass}");
     Ok(())
 }
 
@@ -117,6 +117,6 @@ pub async fn elevate(ldap: &mut Ldap, opts: &Options) -> Result<()> {
         )])
         .await?.success()
         .map_err(|e| anyhow!("elevate failed (need WriteDacl on domain root): {e}"))?;
-    info!("granted {target} DCSync rights (3 object-ACEs appended)");
+    shlog!("granted {target} DCSync rights (3 object-ACEs appended)");
     Ok(())
 }

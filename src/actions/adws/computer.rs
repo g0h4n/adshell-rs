@@ -3,9 +3,8 @@
 
 use anyhow::{anyhow, Result};
 use adws_rs::{AdwsClient, Scope, Value};
-use log::info;
 
-use crate::actions::common::base_dn;
+use crate::{actions::common::base_dn, shlog};
 use crate::args::Options;
 
 use super::{escape_filter, resolve_dn};
@@ -79,7 +78,7 @@ pub async fn run(client: &mut AdwsClient, opts: &Options) -> Result<()> {
     ];
 
     client.create(&dn, &attrs).await.map_err(|e| anyhow!("add_computer failed: {e}"))?;
-    info!("computer account '{name}' created with password: {pass}");
+    shlog!("computer account '{name}' created with password: {pass}");
     Ok(())
 }
 
@@ -92,6 +91,6 @@ pub async fn del_computer(client: &mut AdwsClient, opts: &Options) -> Result<()>
     let base = base_dn(&opts.domain);
     let dn = resolve_dn(client, &base, &name).await?;
     client.delete(&dn).await.map_err(|e| anyhow!("del_computer failed: {e}"))?;
-    info!("computer account '{name}' deleted ({dn})");
+    shlog!("computer account '{name}' deleted ({dn})");
     Ok(())
 }

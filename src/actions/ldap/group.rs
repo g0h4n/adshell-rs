@@ -9,9 +9,8 @@ use std::collections::HashSet;
 
 use anyhow::{anyhow, Result};
 use ldap3::{Ldap, Mod, Scope, SearchEntry};
-use log::info;
 
-use crate::args::Options;
+use crate::{args::Options, shlog};
 
 fn base_dn(domain: &str) -> String {
     domain.split('.').map(|p| format!("dc={p}")).collect::<Vec<_>>().join(",")
@@ -75,7 +74,7 @@ pub async fn add_member(ldap: &mut Ldap, opts: &Options) -> Result<()> {
     .success()
     .map_err(|e| anyhow!("add_member failed (need write on the group): {e}"))?;
 
-    info!("added '{member}' to group '{group}'");
+    shlog!("added '{member}' to group '{group}'");
     Ok(())
 }
 
@@ -102,6 +101,6 @@ pub async fn remove_member(ldap: &mut Ldap, opts: &Options) -> Result<()> {
     .success()
     .map_err(|e| anyhow!("remove_member failed (need write on the group): {e}"))?;
 
-    info!("removed '{member}' from group '{group}'");
+    shlog!("removed '{member}' from group '{group}'");
     Ok(())
 }

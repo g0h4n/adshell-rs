@@ -6,9 +6,9 @@
 
 use anyhow::{anyhow, Result};
 use adws_rs::AdwsClient;
-use log::info;
+use log::debug;
 
-use crate::args::Options;
+use crate::{args::Options, shlog};
 
 pub async fn run(client: &mut AdwsClient, opts: &Options) -> Result<()> {
     let raw = opts.username.as_deref().unwrap_or("<unknown>");
@@ -21,9 +21,10 @@ pub async fn run(client: &mut AdwsClient, opts: &Options) -> Result<()> {
         .await
         .map_err(|e| anyhow!("ADWS RootDSE read failed: {e}"))?;
 
-    info!("[whoami] authenticated as {netbios}\\{user} over ADWS");
+    debug!("[whoami] authenticated as {netbios}\\{user} over ADWS");
     if let Some(nc) = ncs.iter().find(|n| n.to_lowercase().starts_with("dc=")) {
-        info!("[whoami] default naming context: {nc}");
+        debug!("[whoami] default naming context: {nc}");
+        shlog!("{netbios}\\{user} on {nc}");
     }
     Ok(())
 }

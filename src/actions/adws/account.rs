@@ -3,10 +3,10 @@
 
 use anyhow::{anyhow, Result};
 use adws_rs::{AdwsClient, Mod, Scope, Value};
-use log::info;
 
 use crate::actions::common::base_dn;
 use crate::args::Options;
+use crate::shlog;
 
 use super::escape_filter;
 
@@ -42,12 +42,12 @@ pub async fn enable(client: &mut AdwsClient, opts: &Options) -> Result<()> {
     let base = base_dn(&opts.domain);
     let (dn, uac) = get_uac(client, &base, target).await?;
     if uac & UAC_ACCOUNTDISABLE == 0 {
-        info!("[!] account '{target}' is already enabled (UAC={uac})");
+        shlog!("account '{target}' is already enabled (UAC={uac})");
         return Ok(());
     }
     let new_uac = uac & !UAC_ACCOUNTDISABLE;
     set_uac(client, &dn, new_uac).await?;
-    info!("[+] account '{target}' enabled (UAC {uac} -> {new_uac})");
+    shlog!("account '{target}' enabled (UAC {uac} -> {new_uac})");
     Ok(())
 }
 
@@ -56,11 +56,11 @@ pub async fn disable(client: &mut AdwsClient, opts: &Options) -> Result<()> {
     let base = base_dn(&opts.domain);
     let (dn, uac) = get_uac(client, &base, target).await?;
     if uac & UAC_ACCOUNTDISABLE != 0 {
-        info!("[!] account '{target}' is already disabled (UAC={uac})");
+        shlog!("account '{target}' is already disabled (UAC={uac})");
         return Ok(());
     }
     let new_uac = uac | UAC_ACCOUNTDISABLE;
     set_uac(client, &dn, new_uac).await?;
-    info!("[+] account '{target}' disabled (UAC {uac} -> {new_uac})");
+    shlog!("account '{target}' disabled (UAC {uac} -> {new_uac})");
     Ok(())
 }

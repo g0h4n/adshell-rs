@@ -6,10 +6,10 @@ use std::collections::HashSet;
 
 use anyhow::{anyhow, Result};
 use ldap3::{Ldap, Mod, Scope, SearchEntry};
-use log::info;
 
 use crate::args::Options;
 use crate::actions::common::sd;
+use crate::shlog;
 
 const RBCD_ATTR: &str = "msDS-AllowedToActOnBehalfOfOtherIdentity";
 
@@ -55,11 +55,11 @@ pub async fn read(ldap: &mut Ldap, opts: &Options) -> Result<()> {
     let (target_dn, _) = find_object(ldap, &base, target).await?;
     let (_, entries) = read_rbcd_raw(ldap, &base, &target_dn).await?;
     if entries.is_empty() {
-        info!("{RBCD_ATTR} is empty for {target}");
+        shlog!("{RBCD_ATTR} is empty for {target}");
     } else {
-        info!("accounts allowed to act on behalf of '{target}':");
+        shlog!("accounts allowed to act on behalf of '{target}':");
         for (sid_b, _) in &entries {
-            info!("    {}", sd::sid_to_str(sid_b));
+            shlog!("    {}", sd::sid_to_str(sid_b));
         }
     }
     Ok(())
@@ -81,7 +81,7 @@ pub async fn write(ldap: &mut Ldap, opts: &Options) -> Result<()> {
     // Only add if not already present.
     let already = entries.iter().any(|(s, _)| sd::sid_to_str(s) == from_sid_str);
     if already {
-        info!("[!] '{from}' can already act on behalf of '{target}' - not modifying");
+        shlog!("[!] '{from}' can already act on behalf of '{target}', not modifying");
         return Ok(());
     }
     entries.push((from_sid.clone(), 0x00));
@@ -91,7 +91,7 @@ pub async fn write(ldap: &mut Ldap, opts: &Options) -> Result<()> {
     ldap.modify(&target_dn, vec![Mod::Replace(RBCD_ATTR.as_bytes().to_vec(), HashSet::from([new_sd]))])
         .await?.success()
         .map_err(|e| anyhow!("write_rbcd failed: {e}"))?;
-    info!("'{from}' can now impersonate users on '{target}' via S4U2Proxy");
+    shlog!("'{from}' can now impersonate users on '{target}' via S4U2Proxy");
     Ok(())
 }
 
@@ -115,7 +115,7 @@ pub async fn remove(ldap: &mut Ldap, opts: &Options) -> Result<()> {
     ldap.modify(&target_dn, vec![Mod::Replace(RBCD_ATTR.as_bytes().to_vec(), HashSet::from([new_sd]))])
         .await?.success()
         .map_err(|e| anyhow!("remove_rbcd failed: {e}"))?;
-    info!("RBCD entry for '{from}' removed from '{target}'");
+    shlog!("RBCD entry for '{from}' removed from '{target}'");
     Ok(())
 }
 
@@ -128,6 +128,6 @@ pub async fn flush(ldap: &mut Ldap, opts: &Options) -> Result<()> {
     ldap.modify(&target_dn, vec![Mod::Replace(RBCD_ATTR.as_bytes().to_vec(), HashSet::<Vec<u8>>::new())])
         .await?.success()
         .map_err(|e| anyhow!("flush_rbcd failed: {e}"))?;
-    info!("RBCD flushed for '{target}'");
+    shlog!("RBCD flushed for '{target}'");
     Ok(())
 }

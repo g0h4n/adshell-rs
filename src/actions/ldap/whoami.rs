@@ -5,7 +5,9 @@
 use anyhow::{anyhow, Result};
 use ldap3::exop::{WhoAmI, WhoAmIResp};
 use ldap3::Ldap;
-use log::info;
+use log::debug;
+
+use crate::shlog;
 
 /// Run the whoami extended op and return the authzId (e.g. "u:ESSOS\\daenerys").
 pub async fn run(ldap: &mut Ldap) -> Result<String> {
@@ -19,6 +21,7 @@ pub async fn run(ldap: &mut Ldap) -> Result<String> {
     if who.authzid.is_empty() {
         return Err(anyhow!("server returned an empty identity (cert not mapped)"));
     }
-    info!("[whoami] {}", who.authzid);
+    debug!("[whoami] {}", who.authzid);
+    shlog!("{}", who.authzid);
     Ok(who.authzid)
 }

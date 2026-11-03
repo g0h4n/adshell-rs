@@ -4,11 +4,12 @@
 
 use anyhow::{anyhow, Result};
 use adws_rs::{AdwsClient, Mod, Scope, Value};
-use log::{debug, info};
+use log::debug;
 
 use crate::actions::common::keycred::KEYCRED_ATTR;
 use crate::actions::common::{base_dn, keycred};
 use crate::args::Options;
+use crate::shlog;
 
 use super::escape_filter;
 
@@ -66,8 +67,8 @@ pub async fn add(client: &mut AdwsClient, opts: &Options) -> Result<()> {
         .await
         .map_err(|e| anyhow!("add_shadow_cred ADWS modify failed: {e}"))?;
 
-    info!("Shadow credential added to '{target}'");
-    info!("    DeviceID: {}", keycred::format_device_guid(&m.device_id));
+    shlog!("Shadow credential added to '{target}'");
+    shlog!("    DeviceID: {}", keycred::format_device_guid(&m.device_id));
     keycred::write_cert_files_and_hint(target, &opts.domain, &m)?;
     Ok(())
 }
@@ -85,7 +86,7 @@ pub async fn remove(client: &mut AdwsClient, opts: &Options) -> Result<()> {
     let dn = find_target_dn(client, &base, target).await?;
     let values = read_keycred_values(client, &dn).await?;
     if values.is_empty() {
-        info!("No shadow credentials on '{target}', nothing to remove");
+        shlog!("No shadow credentials on '{target}', nothing to remove");
         return Ok(());
     }
 
@@ -104,7 +105,7 @@ pub async fn remove(client: &mut AdwsClient, opts: &Options) -> Result<()> {
     }
     .map_err(|e| anyhow!("remove_shadow_cred ADWS modify failed: {e}"))?;
 
-    info!("Shadow credential '{key_id}' removed from '{target}'");
+    shlog!("Shadow credential '{key_id}' removed from '{target}'");
     Ok(())
 }
 
@@ -116,6 +117,6 @@ pub async fn flush(client: &mut AdwsClient, opts: &Options) -> Result<()> {
         .modify(&dn, &[Mod::delete_all(KEYCRED_ATTR)], None)
         .await
         .map_err(|e| anyhow!("flush_shadow_cred ADWS modify failed: {e}"))?;
-    info!("All shadow credentials cleared from '{target}'");
+    shlog!("All shadow credentials cleared from '{target}'");
     Ok(())
 }

@@ -5,9 +5,8 @@ use std::collections::HashSet;
 
 use anyhow::{anyhow, Result};
 use ldap3::{Ldap, Scope, SearchEntry};
-use log::info;
 
-use crate::args::Options;
+use crate::{args::Options, shlog};
 
 fn base_dn(domain: &str) -> String {
     domain.split('.').map(|p| format!("dc={p}")).collect::<Vec<_>>().join(",")
@@ -80,7 +79,7 @@ pub async fn run(ldap: &mut Ldap, opts: &Options) -> Result<()> {
 
     ldap.add(&dn, attrs).await?.success()
         .map_err(|e| anyhow!("add_computer failed: {e}"))?;
-    info!("computer account '{name}' created with password: {pass}");
+    shlog!("computer account '{name}' created with password: {pass}");
     Ok(())
 }
 
@@ -93,6 +92,6 @@ pub async fn del_computer(ldap: &mut Ldap, opts: &Options) -> Result<()> {
         .ok_or_else(|| anyhow!("computer {name} not found"))?;
     ldap.delete(&dn).await?.success()
         .map_err(|e| anyhow!("del_computer failed: {e}"))?;
-    info!("computer account '{name}' deleted");
+    shlog!("computer account '{name}' deleted");
     Ok(())
 }

@@ -10,7 +10,7 @@ use anyhow::{anyhow, Result};
 use ldap3::{Ldap, Mod, Scope, SearchEntry};
 use log::info;
 
-use crate::args::Options;
+use crate::{args::Options, shlog};
 
 const UAC_ACCOUNTDISABLE: u32 = 0x0002;
 
@@ -64,12 +64,12 @@ pub async fn enable(ldap: &mut Ldap, opts: &Options) -> Result<()> {
     let (dn, uac) = get_uac(ldap, &base, target).await?;
 
     if uac & UAC_ACCOUNTDISABLE == 0 {
-        info!("[!] account '{target}' is already enabled (UAC={uac})");
+        shlog!("[!] account '{target}' is already enabled (UAC={uac})");
         return Ok(());
     }
     let new_uac = uac & !UAC_ACCOUNTDISABLE;
     set_uac(ldap, &dn, new_uac).await?;
-    info!("account '{target}' enabled (UAC {uac} -> {new_uac})");
+    shlog!("account '{target}' enabled (UAC {uac} -> {new_uac})");
     Ok(())
 }
 
@@ -88,6 +88,6 @@ pub async fn disable(ldap: &mut Ldap, opts: &Options) -> Result<()> {
     }
     let new_uac = uac | UAC_ACCOUNTDISABLE;
     set_uac(ldap, &dn, new_uac).await?;
-    info!("account '{target}' disabled (UAC {uac} -> {new_uac})");
+    shlog!("account '{target}' disabled (UAC {uac} -> {new_uac})");
     Ok(())
 }

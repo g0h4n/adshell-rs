@@ -5,11 +5,12 @@ use std::collections::HashSet;
 
 use anyhow::{anyhow, Result};
 use ldap3::{Ldap, Mod, Scope, SearchEntry};
-use log::{debug, info};
+use log::debug;
 
 use crate::actions::common::{base_dn, keycred};
 use crate::actions::common::keycred::KEYCRED_ATTR;
 use crate::args::Options;
+use crate::shlog;
 
 /// Resolve a sAMAccountName (or CN, with/without trailing `$`) to its DN.
 async fn find_target_dn(ldap: &mut Ldap, base: &str, sam: &str) -> Result<String> {
@@ -65,8 +66,8 @@ pub async fn add(ldap: &mut Ldap, opts: &Options) -> Result<()> {
         .success()
         .map_err(|e| anyhow!("add_shadow_cred LDAP modify failed: {e}"))?;
 
-    info!("Shadow credential added to '{target}'");
-    info!("    DeviceID: {}", keycred::format_device_guid(&m.device_id));
+    shlog!("Shadow credential added to '{target}'");
+    shlog!("    DeviceID: {}", keycred::format_device_guid(&m.device_id));
     keycred::write_cert_files_and_hint(target, &opts.domain, &m)?;
     Ok(())
 }
@@ -84,7 +85,7 @@ pub async fn remove(ldap: &mut Ldap, opts: &Options) -> Result<()> {
     let dn = find_target_dn(ldap, &base, target).await?;
     let values = read_keycred_values(ldap, &dn).await?;
     if values.is_empty() {
-        info!("No shadow credentials on '{target}', nothing to remove");
+        shlog!("No shadow credentials on '{target}', nothing to remove");
         return Ok(());
     }
 
@@ -100,7 +101,7 @@ pub async fn remove(ldap: &mut Ldap, opts: &Options) -> Result<()> {
         .await?
         .success()
         .map_err(|e| anyhow!("remove_shadow_cred LDAP modify failed: {e}"))?;
-    info!("Shadow credential '{key_id}' removed from '{target}'");
+    shlog!("Shadow credential '{key_id}' removed from '{target}'");
     Ok(())
 }
 
@@ -112,6 +113,6 @@ pub async fn flush(ldap: &mut Ldap, opts: &Options) -> Result<()> {
         .await?
         .success()
         .map_err(|e| anyhow!("flush_shadow_cred LDAP modify failed: {e}"))?;
-    info!("All shadow credentials cleared from '{target}'");
+    shlog!("All shadow credentials cleared from '{target}'");
     Ok(())
 }

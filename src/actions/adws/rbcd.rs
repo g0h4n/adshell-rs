@@ -3,10 +3,10 @@
 
 use anyhow::{anyhow, Result};
 use adws_rs::{AdwsClient, Mod, Scope, Value};
-use log::info;
 
 use crate::actions::common::{base_dn, sd};
 use crate::args::Options;
+use crate::shlog;
 
 use super::find_object;
 
@@ -40,11 +40,11 @@ pub async fn read(client: &mut AdwsClient, opts: &Options) -> Result<()> {
     let (target_dn, _) = find_object(client, &base, target).await?;
     let (_, entries) = read_rbcd(client, &target_dn).await?;
     if entries.is_empty() {
-        info!("[*] {RBCD_ATTR} is empty for {target}");
+        shlog!("{RBCD_ATTR} is empty for {target}");
     } else {
-        info!("[*] accounts allowed to act on behalf of '{target}':");
+        shlog!("accounts allowed to act on behalf of '{target}':");
         for (sid_b, _) in &entries {
-            info!("    {}", sd::sid_to_str(sid_b));
+            shlog!("    {}", sd::sid_to_str(sid_b));
         }
     }
     Ok(())
@@ -61,12 +61,12 @@ pub async fn write(client: &mut AdwsClient, opts: &Options) -> Result<()> {
 
     let (_, mut entries) = read_rbcd(client, &target_dn).await?;
     if entries.iter().any(|(s, _)| sd::sid_to_str(s) == from_sid_str) {
-        info!("[!] '{from}' can already act on behalf of '{target}' - not modifying");
+        shlog!("'{from}' can already act on behalf of '{target}' - not modifying");
         return Ok(());
     }
     entries.push((from_sid, 0x00));
     write_sd(client, &target_dn, &entries).await?;
-    info!("[+] '{from}' can now impersonate users on '{target}' via S4U2Proxy");
+    shlog!("'{from}' can now impersonate users on '{target}' via S4U2Proxy");
     Ok(())
 }
 
@@ -83,7 +83,7 @@ pub async fn remove(client: &mut AdwsClient, opts: &Options) -> Result<()> {
     let filtered: Vec<(Vec<u8>, u8)> =
         entries.into_iter().filter(|(s, _)| sd::sid_to_str(s) != from_sid_str).collect();
     write_sd(client, &target_dn, &filtered).await?;
-    info!("[+] RBCD entry for '{from}' removed from '{target}'");
+    shlog!("RBCD entry for '{from}' removed from '{target}'");
     Ok(())
 }
 
@@ -95,6 +95,6 @@ pub async fn flush(client: &mut AdwsClient, opts: &Options) -> Result<()> {
         .modify(&target_dn, &[Mod::delete_all(RBCD_ATTR)], None)
         .await
         .map_err(|e| anyhow!("flush_rbcd failed: {e}"))?;
-    info!("[+] RBCD flushed for '{target}'");
+    shlog!("RBCD flushed for '{target}'");
     Ok(())
 }

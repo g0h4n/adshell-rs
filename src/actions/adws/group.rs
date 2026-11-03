@@ -2,9 +2,8 @@
 
 use anyhow::{anyhow, Result};
 use adws_rs::{Mod, Value};
-use log::info;
 
-use crate::actions::common::base_dn;
+use crate::{actions::common::base_dn, shlog};
 use crate::args::Options;
 
 use super::{resolve_dn, resolve_group_dn};
@@ -21,7 +20,7 @@ pub async fn add_member(client: &mut adws_rs::AdwsClient, opts: &Options) -> Res
         .modify(&group_dn, &[Mod::add("member", vec![Value::Text(member_dn)])], None)
         .await
         .map_err(|e| anyhow!("add_member failed (need write on the group): {e}"))?;
-    info!("[+] added '{member}' to group '{group}'");
+    shlog!("added '{member}' to group '{group}'");
     Ok(())
 }
 
@@ -37,6 +36,6 @@ pub async fn remove_member(client: &mut adws_rs::AdwsClient, opts: &Options) -> 
         .modify(&group_dn, &[Mod::delete("member", vec![Value::Text(member_dn)])], None)
         .await
         .map_err(|e| anyhow!("remove_member failed (need write on the group): {e}"))?;
-    info!("[+] removed '{member}' from group '{group}'");
+    shlog!("removed '{member}' from group '{group}'");
     Ok(())
 }
