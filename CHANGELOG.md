@@ -1,5 +1,41 @@
 # Changelog
 
+## 1.0.1 - 2026-11-03
+
+### Added
+
+- `info` command: shows the current connection and authentication parameters
+  (transport, endpoint, security, domain, DC, auth method, username), with the
+  password and NT hash masked. Transport-agnostic (LDAP and ADWS), in
+  `actions::common::info`.
+- `log` command (mimikatz-style): `log` logs the session to
+  `<TIMESTAMP>-adshell-rs.log`, `log <file>` to a chosen file, `log stop` ends
+  it. Every command is written with a local timestamp (`[ts] $ <command>`), and
+  all output is mirrored to the file: `log`-facade records (via an `env_logger`
+  `.format` tee) and the shell's own output (via the `shlog!` macro), with ANSI
+  color codes stripped.
+- Colored interactive prompt `[adshell-rs] $` (brackets dark gray, name orange,
+  `$` white) with the typed command shown in light gray. Cross-platform through
+  `colored`.
+- Shadow Credentials over ADWS (SOAP): `add_shadow_cred` / `list_shadow_cred` /
+  `remove_shadow_cred` / `flush_shadow_cred` now run over the ADWS transport,
+  reaching parity with the LDAP path.
+
+### Changed
+
+- `read_object` (LDAP) now uses the shared `common::dump` decoder, so its output
+  matches the ADWS path exactly (SID / GUID / userAccountControl / FILETIME).
+  The duplicated decoding (~215 lines) was removed.
+- Action output is routed through the `shlog!` macro so the `log` command
+  captures it in the log file.
+- The `rustyline` backend is capped at `warn` so its key-event / layout DEBUG
+  spam no longer floods the prompt at `-v` / `-vv`.
+
+### Dependencies
+
+- Added `colored` (prompt / shell colors) and `chrono` (local-time log
+  timestamps).
+
 ## 1.0.0 - 2026-11-02
 
 First release. An interactive shell and Active Directory attack toolkit that
