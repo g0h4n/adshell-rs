@@ -6,6 +6,9 @@
 //! it is fully static, needs no LDAP round-trip, and never blocks the async
 //! REPL. Arguments are not completed.
 
+use std::borrow::Cow;
+
+use colored::Colorize;
 use rustyline::completion::{Completer, Pair};
 use rustyline::highlight::Highlighter;
 use rustyline::hint::Hinter;
@@ -19,6 +22,7 @@ pub const COMMANDS: &[&str] = &[
     "exit",
     "quit",
     "whoami",
+    "info",
     "search",
     "dn",
     "add_member",
@@ -87,10 +91,27 @@ impl Completer for ShellHelper {
     }
 }
 
-// No hints, no syntax highlighting, no multi-line validation: use the defaults.
+// No hints, no multi-line validation: use the defaults.
 impl Hinter for ShellHelper {
     type Hint = String;
 }
-impl Highlighter for ShellHelper {}
+
+/// Render the typed command line in light gray. The prompt itself is colored
+/// separately (in `shell::shell_prompt`) and passed to `readline`.
+impl Highlighter for ShellHelper {
+    fn highlight<'l>(&self, line: &'l str, _pos: usize) -> Cow<'l, str> {
+        if line.is_empty() {
+            Cow::Borrowed(line)
+        } else {
+            Cow::Owned(line.truecolor(180, 180, 180).to_string())
+        }
+    }
+
+    // Re-highlight on every keystroke so the gray applies as you type.
+    fn highlight_char(&self, _line: &str, _pos: usize, _forced: bool) -> bool {
+        true
+    }
+}
+
 impl Validator for ShellHelper {}
 impl Helper for ShellHelper {}

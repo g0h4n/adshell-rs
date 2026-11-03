@@ -1,6 +1,6 @@
 [package]
 name = "adshell-rs"
-version = "1.0.0"
+version = "1.0.1"
 edition = "2021"
 description = "Interactive LDAP/ADWS shell and Active Directory attack actions in pure Rust, over LDAP(S) or ADWS (SOAP). Transport model from RustHound-CE, ADWS via adws-rs."
 license = "MIT"
@@ -17,7 +17,11 @@ log        = "0.4"
 env_logger = "0.11"
 rand       = "0.8"
 hex        = "0.4"
+colored    = "2"
 
+# Local time for log timestamps (time crate's now_local fails under tokio).
+
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
 # Interactive shell: line editing, history, Tab completion.
 rustyline = "14"
 # Password prompt when -u is given without -p (like RustHound-CE).
@@ -34,7 +38,7 @@ time  = "0.3"
 ldap3 = { version = "0.12.1", default-features = false, features = ["tls-rustls-ring", "ntlm"] }
 
 # ADWS / SOAP transport.
-adws_rs = { package = "adws", version = "0.1.0", features = ["ldap3", "sspi-auth"] }
+adws_rs = { package = "adws", path = "../adws/", version = "0.1.1", features = ["ldap3", "sspi-auth"] }
 
 # rustls pieces (aligned with what ldap3 0.12.1 pulls: rustls 0.23, pki-types 1).
 rustls           = { version = "0.23", default-features = false, features = ["ring", "std"] }

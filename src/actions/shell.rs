@@ -6,6 +6,7 @@
 //! failing.
 
 use anyhow::Result;
+use colored::Colorize;
 use log::warn;
 use rustyline::error::ReadlineError;
 use rustyline::history::MemHistory;
@@ -14,6 +15,7 @@ use rustyline::{Config, Editor};
 use crate::actions::shell_completer::ShellHelper;
 use crate::actions::{adws, ldap};
 use crate::args::Options;
+use crate::shlog;
 use crate::transport::Session;
 
 type ShellEditor = Editor<ShellHelper, MemHistory>;
@@ -28,6 +30,20 @@ fn build_editor() -> Result<ShellEditor> {
     Ok(editor)
 }
 
+/// Build the colored interactive prompt `[adshell-rs] $ `:
+/// brackets bold dark gray, `adshell-rs` bold orange, `$` bold white.
+/// `colored` handles cross-platform ANSI (and auto-disables when not a TTY),
+/// and rustyline skips the escape sequences when sizing the prompt.
+fn shell_prompt() -> String {
+    format!(
+        "{}{}{} {} ",
+        "[".truecolor(90, 90, 90).bold(),
+        "adshell-rs".truecolor(255, 135, 0).bold(),
+        "]".truecolor(90, 90, 90).bold(),
+        "$".white().bold(),
+    )
+}
+
 fn transport_name(session: &Session) -> &'static str {
     match session {
         Session::Ldap(_) => "LDAP",
@@ -36,17 +52,18 @@ fn transport_name(session: &Session) -> &'static str {
 }
 
 pub async fn run(session: &mut Session, base_opts: &Options) -> Result<()> {
-    println!(
+    shlog!(
         "adshell-rs shell ({} transport). type 'help' or '?' for commands, 'exit' to quit.",
         transport_name(session)
     );
-    println!("(Tab completes commands, up/down browse history, Ctrl-C cancels a line, Ctrl-D quits)");
+    shlog!("(Tab completes commands, up/down browse history, Ctrl-C cancels a line, Ctrl-D quits)");
 
     let mut editor = build_editor()?;
 
     loop {
+        let prompt = shell_prompt();
         let (line_result, ed) = tokio::task::spawn_blocking(move || {
-            let res = editor.readline("# ");
+            let res = editor.readline(&prompt);
             (res, editor)
         })
         .await
@@ -72,6 +89,9 @@ pub async fn run(session: &mut Session, base_opts: &Options) -> Result<()> {
         let cmd = args[0];
         let rest = &args[1..];
 
+        // Record the command (with its timestamp) when a log file is open.
+        crate::actions::common::logfile::command(line);
+
         let result: Result<()> = match cmd {
             "exit" | "quit" | "q" => break,
             "help" | "?" | "h" => {
@@ -80,13 +100,21 @@ pub async fn run(session: &mut Session, base_opts: &Options) -> Result<()> {
             }
 
             "whoami" => do_whoami(session, base_opts).await,
+            "info" => {
+                crate::actions::common::info::run(session, base_opts);
+                Ok(())
+            }
+            "log" => {
+                do_log(rest);
+                Ok(())
+            }
             "search" => {
                 do_search(session, rest).await;
                 Ok(())
             }
             "dn" => {
                 if rest.is_empty() {
-                    println!("usage: dn <baseDN>");
+                    shlog!("usage: dn <baseDN>");
                     Ok(())
                 } else {
                     do_search(session, &[rest[0], "(objectClass=*)"]).await;
@@ -119,7 +147,7 @@ pub async fn run(session: &mut Session, base_opts: &Options) -> Result<()> {
             "flush_shadow_cred" | "shadow_flush" => run_shadow(session, base_opts, rest, "flush").await,
 
             other => {
-                println!("unknown command '{other}' (try 'help')");
+                shlog!("unknown command '{other}' (try 'help')");
                 Ok(())
             }
         };
@@ -131,9 +159,36 @@ pub async fn run(session: &mut Session, base_opts: &Options) -> Result<()> {
     Ok(())
 }
 
-/// ADWS-not-yet notice helper.
-fn adws_todo(cmd: &str) {
-    println!("{cmd}: not available over ADWS yet (use the LDAP transport)");
+/// `log` command: start/stop session logging (mimikatz-style).
+/// `log` toggles the default file on/off, `log <file>` logs to a chosen file,
+/// `log stop` (or `off`) ends logging.
+fn do_log(rest: &[&str]) {
+    use crate::actions::common::logfile;
+    match rest.first().map(|s| s.to_ascii_lowercase()).as_deref() {
+        Some("stop") | Some("off") => match logfile::stop() {
+            Some(p) => shlog!("logging stopped ({p})"),
+            None => shlog!("logging is not active"),
+        },
+        Some("status") => match logfile::path() {
+            Some(p) => shlog!("logging to {p}"),
+            None => shlog!("logging is not active"),
+        },
+        Some(file) => match logfile::start(Some(file)) {
+            Ok(p) => shlog!("logging to {p}"),
+            Err(e) => shlog!("could not open log file: {e}"),
+        },
+        None => {
+            // No argument: if active, report; otherwise start the default file.
+            if let Some(p) = logfile::path() {
+                shlog!("logging to {p} (use 'log stop' to end)");
+            } else {
+                match logfile::start(None) {
+                    Ok(p) => shlog!("logging to {p}"),
+                    Err(e) => shlog!("could not open log file: {e}"),
+                }
+            }
+        }
+    }
 }
 
 async fn do_whoami(session: &mut Session, base: &Options) -> Result<()> {
@@ -145,7 +200,7 @@ async fn do_whoami(session: &mut Session, base: &Options) -> Result<()> {
 
 async fn do_search(session: &mut Session, a: &[&str]) {
     if a.is_empty() {
-        println!("usage: search <baseDN> [filter]");
+        shlog!("usage: search <baseDN> [filter]");
         return;
     }
     let base = a[0];
@@ -156,9 +211,9 @@ async fn do_search(session: &mut Session, a: &[&str]) {
             match l.search(base, Scope::Subtree, filter, vec!["dn"]).await {
                 Ok(res) => match res.success() {
                     Ok((entries, _)) => {
-                        println!("{} entrie(s):", entries.len());
+                        shlog!("{} entrie(s):", entries.len());
                         for e in entries {
-                            println!("  {}", SearchEntry::construct(e).dn);
+                            shlog!("  {}", SearchEntry::construct(e).dn);
                         }
                     }
                     Err(e) => warn!("search error: {e}"),
@@ -170,9 +225,9 @@ async fn do_search(session: &mut Session, a: &[&str]) {
             use adws_rs::Scope;
             match c.search(base, Scope::Subtree, filter, &["distinguishedName"], None, false).await {
                 Ok(entries) => {
-                    println!("{} entrie(s):", entries.len());
+                    shlog!("{} entrie(s):", entries.len());
                     for e in entries {
-                        println!("  {}", e.dn);
+                        shlog!("  {}", e.dn);
                     }
                 }
                 Err(e) => warn!("search failed: {e}"),
@@ -183,7 +238,7 @@ async fn do_search(session: &mut Session, a: &[&str]) {
 
 async fn run_group(session: &mut Session, base: &Options, a: &[&str], add: bool) -> Result<()> {
     if a.len() < 2 {
-        println!("usage: {} <user> <group>", if add { "add_member" } else { "del_member" });
+        shlog!("usage: {} <user> <group>", if add { "add_member" } else { "del_member" });
         return Ok(());
     }
     let mut o = base.clone();
@@ -197,7 +252,7 @@ async fn run_group(session: &mut Session, base: &Options, a: &[&str], add: bool)
 
 async fn run_account(session: &mut Session, base: &Options, a: &[&str], enable: bool) -> Result<()> {
     if a.is_empty() {
-        println!("usage: {} <user>", if enable { "enable" } else { "disable" });
+        shlog!("usage: {} <user>", if enable { "enable" } else { "disable" });
         return Ok(());
     }
     let mut o = base.clone();
@@ -210,7 +265,7 @@ async fn run_account(session: &mut Session, base: &Options, a: &[&str], enable: 
 
 async fn run_passwd(session: &mut Session, base: &Options, a: &[&str]) -> Result<()> {
     if a.is_empty() {
-        println!("usage: passwd <user> [newpassword]");
+        shlog!("usage: passwd <user> [newpassword]");
         return Ok(());
     }
     let mut o = base.clone();
@@ -224,7 +279,7 @@ async fn run_passwd(session: &mut Session, base: &Options, a: &[&str]) -> Result
 
 async fn run_elevate(session: &mut Session, base: &Options, a: &[&str]) -> Result<()> {
     if a.is_empty() {
-        println!("usage: elevate <user>   (grant DCSync)");
+        shlog!("usage: elevate <user>   (grant DCSync)");
         return Ok(());
     }
     let mut o = base.clone();
@@ -248,7 +303,7 @@ async fn run_add_computer(session: &mut Session, base: &Options, a: &[&str]) -> 
 
 async fn run_del_computer(session: &mut Session, base: &Options, a: &[&str]) -> Result<()> {
     if a.is_empty() {
-        println!("usage: del_computer <name$>");
+        shlog!("usage: del_computer <name$>");
         return Ok(());
     }
     let mut o = base.clone();
@@ -261,7 +316,7 @@ async fn run_del_computer(session: &mut Session, base: &Options, a: &[&str]) -> 
 
 async fn run_read_object(session: &mut Session, base: &Options, a: &[&str]) -> Result<()> {
     if a.is_empty() {
-        println!("usage: read_object <sAMAccountName | CN | DN>");
+        shlog!("usage: read_object <sAMAccountName | CN | DN>");
         return Ok(());
     }
     let mut o = base.clone();
@@ -274,7 +329,7 @@ async fn run_read_object(session: &mut Session, base: &Options, a: &[&str]) -> R
 
 async fn run_rbcd(session: &mut Session, base: &Options, a: &[&str], op: &str) -> Result<()> {
     if a.is_empty() {
-        println!("usage: {op}_rbcd <target$> [from$]");
+        shlog!("usage: {op}_rbcd <target$> [from$]");
         return Ok(());
     }
     let mut o = base.clone();
@@ -299,34 +354,37 @@ async fn run_rbcd(session: &mut Session, base: &Options, a: &[&str], op: &str) -
 }
 
 async fn run_shadow(session: &mut Session, base: &Options, a: &[&str], op: &str) -> Result<()> {
+    if a.is_empty() {
+        shlog!("usage: {op}_shadow_cred <target> [key_id_hex (remove)]");
+        return Ok(());
+    }
+    let mut o = base.clone();
+    o.shadow_target = Some(a[0].to_string());
+    o.shadow_key_id = a.get(1).map(|s| s.to_string());
     match session {
-        Session::Adws(_) => {
-            adws_todo(&format!("{op}_shadow_cred"));
-            Ok(())
-        }
-        Session::Ldap(l) => {
-            if a.is_empty() {
-                println!("usage: {op}_shadow_cred <target> [key_id_hex (remove)]");
-                return Ok(());
-            }
-            let mut o = base.clone();
-            o.shadow_target = Some(a[0].to_string());
-            o.shadow_key_id = a.get(1).map(|s| s.to_string());
-            match op {
-                "add" => ldap::shadow_cred::add(l, &o).await,
-                "list" => ldap::shadow_cred::list(l, &o).await,
-                "remove" => ldap::shadow_cred::remove(l, &o).await,
-                "flush" => ldap::shadow_cred::flush(l, &o).await,
-                _ => Ok(()),
-            }
-        }
+        Session::Ldap(l) => match op {
+            "add" => ldap::shadow_cred::add(l, &o).await,
+            "list" => ldap::shadow_cred::list(l, &o).await,
+            "remove" => ldap::shadow_cred::remove(l, &o).await,
+            "flush" => ldap::shadow_cred::flush(l, &o).await,
+            _ => Ok(()),
+        },
+        Session::Adws(c) => match op {
+            "add" => adws::shadow_cred::add(c, &o).await,
+            "list" => adws::shadow_cred::list(c, &o).await,
+            "remove" => adws::shadow_cred::remove(c, &o).await,
+            "flush" => adws::shadow_cred::flush(c, &o).await,
+            _ => Ok(()),
+        },
     }
 }
 
 fn print_help() {
-    println!(
+    shlog!(
         "commands:\n\
          \x20 whoami                               show the authenticated identity\n\
+         \x20 info                                 show connection / auth parameters\n\
+         \x20 log [file|stop]                      log session to file (default TIMESTAMP-adshell-rs.log)\n\
          \x20 search <baseDN> [filter]             subtree search, prints DNs\n\
          \x20 dn <baseDN>                          search <baseDN> (objectClass=*)\n\
          \x20 add_member <user> <group>            add user/computer to a group\n\
