@@ -38,7 +38,7 @@ time  = "0.3"
 ldap3 = { version = "0.12.1", default-features = false, features = ["tls-rustls-ring", "ntlm"] }
 
 # ADWS / SOAP transport.
-adws_rs = { package = "adws", path = "../adws/", version = "0.1.1", features = ["ldap3", "sspi-auth"] }
+adws_rs = { package = "adws", version = "0.1.1", features = ["ldap3", "sspi-auth"] }
 
 # rustls pieces (aligned with what ldap3 0.12.1 pulls: rustls 0.23, pki-types 1).
 rustls           = { version = "0.23", default-features = false, features = ["ring", "std"] }

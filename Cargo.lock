@@ -34,6 +34,8 @@ dependencies = [
 [[package]]
 name = "adws"
 version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "684d50a064893bba49ea4bec17f5a09c16f95a71ac4c57162601804739d92b5d"
 dependencies = [
  "base64",
  "byteorder",
