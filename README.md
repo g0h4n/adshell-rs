@@ -29,6 +29,15 @@ cargo build --release
 # Binary: ./target/release/adshell-rs
 ```
 
+## Installation
+
+<a href="https://crates.io/crates/adshell-rs"><img alt="Crates.io Version" src="https://img.shields.io/crates/v/adshell-rs"> <img alt="Crates.io Total Downloads" src="https://img.shields.io/crates/d/adshell-rs?color=f74c00"></a>
+
+```bash
+# Install and/or update adshell-rs from cargo command
+cargo install adshell-rs
+```
+
 ## Usage
 
 ```bash
